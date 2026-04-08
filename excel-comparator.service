@@ -1,0 +1,22 @@
+[Unit]
+Description=Excel Comparator Web Application
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/excel-comparator
+Environment="PATH=/opt/excel-comparator/venv/bin"
+ExecStart=/opt/excel-comparator/venv/bin/python main.py
+Restart=always
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/excel-comparator/uploads /opt/excel-comparator/data.db
+
+[Install]
+WantedBy=multi-user.target

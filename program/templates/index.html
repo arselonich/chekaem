@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Объединение и сравнение Excel</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Объединение и сравнение данных</h1>
+            <p>Загрузите три файла в формате Excel (.xlsx) для обработки</p>
+        </header>
+
+        <!-- Шаг 1: Загрузка файлов -->
+        <section id="step1" class="step">
+            <h2>Шаг 1: Загрузка файлов</h2>
+            
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="file-inputs">
+                    <div class="file-group">
+                        <label for="file1">Файл 1 (TDSheet)</label>
+                        <div class="drop-zone" id="dropZone1">
+                            <span class="drop-zone__prompt">Перетащите файл или нажмите для выбора</span>
+                            <input type="file" name="file1" id="file1" accept=".xlsx" class="drop-zone__input" required>
+                        </div>
+                        <div class="file-info" id="fileInfo1"></div>
+                    </div>
+
+                    <div class="file-group">
+                        <label for="file2">Файл 2 (Лист1)</label>
+                        <div class="drop-zone" id="dropZone2">
+                            <span class="drop-zone__prompt">Перетащите файл или нажмите для выбора</span>
+                            <input type="file" name="file2" id="file2" accept=".xlsx" class="drop-zone__input" required>
+                        </div>
+                        <div class="file-info" id="fileInfo2"></div>
+                    </div>
+
+                    <div class="file-group">
+                        <label for="file3">Справочник (кадастровые номера полей)</label>
+                        <div class="drop-zone" id="dropZone3">
+                            <span class="drop-zone__prompt">Перетащите файл или нажмите для выбора</span>
+                            <input type="file" name="file3" id="file3" accept=".xlsx" class="drop-zone__input" required>
+                        </div>
+                        <div class="file-info" id="fileInfo3"></div>
+                    </div>
+                </div>
+
+                <button type="submit" id="analyzeBtn" disabled>Продолжить</button>
+            </form>
+        </section>
+
+        <!-- Шаг 2: Выбор места и классификация номеров -->
+        <section id="step2" class="step" style="display: none;">
+            <h2>Шаг 2: Выбор места</h2>
+
+            <div class="place-selector">
+                <div class="place-select-group">
+                    <label for="placeSelect">Выберите место:</label>
+                    <select id="placeSelect">
+                        <option value="">-- Загрузка списка --</option>
+                    </select>
+                </div>
+
+                <div class="add-place-group">
+                    <label for="newPlaceInput">Или добавьте новое:</label>
+                    <div class="add-place-row">
+                        <input type="text" id="newPlaceInput" placeholder="Название места">
+                        <button type="button" id="addPlaceBtn" class="btn-secondary">Добавить</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Классификация номеров (показывается после выбора места) -->
+            <div id="classificationSection" style="display: none;">
+                <div class="classification-header">
+                    <h3>📊 Классификация номеров</h3>
+                    <p class="classification-subtitle">Распределение номеров по типам во втором файле</p>
+                </div>
+                
+                <div class="classification-stats" id="classificationStats">
+                    <div class="stats-overview">
+                        <div class="overview-item overview-total">
+                            <span class="overview-label">📁 Всего строк</span>
+                            <span class="overview-value" id="statTotal">0</span>
+                        </div>
+                        <div class="overview-item overview-unique">
+                            <span class="overview-label">🔢 Уникальных номеров</span>
+                            <span class="overview-value" id="statUnique">0</span>
+                        </div>
+                        <div class="overview-item overview-saved">
+                            <span class="overview-label">💾 Сохранено в БД</span>
+                            <span class="overview-value" id="statSaved">0</span>
+                        </div>
+                    </div>
+
+                    <h4 class="stats-title">Распределение по типам</h4>
+                    
+                    <div class="stats-bars">
+                        <div class="stat-bar-item">
+                            <div class="stat-bar-label">
+                                <span class="stat-bar-text">Тип Э — <span id="statEText">0</span></span>
+                            </div>
+                            <div class="stat-bar">
+                                <div class="stat-bar-fill stat-bar-fill-e" id="statEBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="stat-bar-item">
+                            <div class="stat-bar-label">
+                                <span class="stat-bar-text">Тип К — <span id="statKText">0</span></span>
+                            </div>
+                            <div class="stat-bar">
+                                <div class="stat-bar-fill stat-bar-fill-k" id="statKBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="stat-bar-item">
+                            <div class="stat-bar-label">
+                                <span class="stat-bar-text">Тип Склад — <span id="statSkladText">0</span></span>
+                            </div>
+                            <div class="stat-bar">
+                                <div class="stat-bar-fill stat-bar-fill-sklad" id="statSkladBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="stat-bar-item">
+                            <div class="stat-bar-label">
+                                <span class="stat-bar-text">Неопределённые — <span id="statUndefinedText">0</span></span>
+                            </div>
+                            <div class="stat-bar">
+                                <div class="stat-bar-fill stat-bar-fill-undefined" id="statUndefinedBar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="undefined-section" id="undefinedSection" style="display: none;">
+                    <p class="mapping-hint">
+                        💡 Для следующих номеров не удалось автоматически определить тип.
+                        Пожалуйста, выберите тип вручную для каждого номера:
+                    </p>
+
+                    <div class="mapping-table-container">
+                        <table class="mapping-table" id="classificationTable">
+                            <thead>
+                                <tr>
+                                    <th width="40%">Номер (столбец F)</th>
+                                    <th width="55%">Тип</th>
+                                    <th width="5%">Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody id="classificationTableBody">
+                                <!-- Заполняется JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="mapping-actions-bottom">
+                    <button type="button" id="saveClassificationsBtn" class="btn-primary">💾 Сохранить классификацию</button>
+                    <button type="button" id="goToPabricushkiBtn" class="btn-primary" style="display: none;">➡️ Перейти к пабрикушкам</button>
+                </div>
+            </div>
+
+            <div id="mappingSection" style="display: none;">
+                <!-- Шаг 3: Сопоставление пабрикушек -->
+                <div class="mapping-step" id="pabMappingStep">
+                    <div class="mapping-header">
+                        <h3>Шаг 3: Соотнесите пабрикушки из Файла 1 с Файлом 2</h3>
+                        <p class="mapping-hint">
+                            💡 Выберите соответствие для каждой пабрикушки из первого файла.
+                            Для исключения выберите "семена" или "НЕ ВХОДИТ В ПАТ".
+                        </p>
+                        <div class="mapping-actions">
+                            <button type="button" id="autoMapBtn" class="btn-secondary">🤖 Авто-сопоставление</button>
+                            <button type="button" id="resetMappingsBtn" class="btn-secondary">🔄 Сбросить</button>
+                        </div>
+                    </div>
+
+                    <div class="mapping-table-container">
+                        <table class="mapping-table" id="mappingTable">
+                            <thead>
+                                <tr>
+                                    <th width="30%">Пабрикушка (Файл 1)</th>
+                                    <th width="65%">Соответствие (Файл 2)</th>
+                                    <th width="5%">Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody id="mappingTableBody">
+                                <!-- Заполняется JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mapping-actions-bottom">
+                        <button type="button" id="saveMappingsBtn" class="btn-primary">💾 Сохранить соотношения пабрикушек</button>
+                        <button type="button" id="goToFieldsBtn" class="btn-primary">➡️ Перейти к полям</button>
+                    </div>
+                </div>
+
+                <!-- Этап 2: Названия полей -->
+                <div class="mapping-step" id="fieldMappingStep" style="display: none;">
+                    <div class="mapping-header">
+                        <h3>Шаг 4: Соотнесите названия полей из Файла 1 с Файлом 2</h3>
+                        <p class="mapping-hint">
+                            💡 Выберите соответствие для каждого названия поля из первого файла.
+                        </p>
+                        <div class="mapping-actions">
+                            <button type="button" id="autoMapFieldsBtn" class="btn-secondary">🤖 Авто-сопоставление</button>
+                            <button type="button" id="resetFieldMappingsBtn" class="btn-secondary">🔄 Сбросить</button>
+                        </div>
+                    </div>
+
+                    <div class="mapping-table-container">
+                        <table class="mapping-table" id="fieldMappingTable">
+                            <thead>
+                                <tr>
+                                    <th width="30%">Название поля (Файл 1)</th>
+                                    <th width="65%">Соответствие (Файл 2)</th>
+                                    <th width="5%">Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fieldMappingTableBody">
+                                <!-- Заполняется JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mapping-actions-bottom">
+                        <button type="button" id="saveFieldMappingsBtn" class="btn-primary">💾 Сохранить соотношения полей</button>
+                        <button type="button" id="backToPabsBtn" class="btn-secondary">⬅️ Назад к пабрикушкам</button>
+                        <button type="button" id="processBtn" class="btn-primary">📋 Сформировать отчёт</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Индикатор загрузки -->
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p id="loadingText">Идёт обработка, пожалуйста, подождите...</p>
+        </div>
+
+        <!-- Результат -->
+        <div id="result" class="result" style="display: none;">
+            <h3>✅ Готово!</h3>
+            <p>Файл успешно обработан. <a href="#" id="downloadLink">Скачать результат</a></p>
+            <button type="button" id="newReportBtn" class="btn-primary">Создать новый отчёт</button>
+        </div>
+
+        <!-- Ошибка -->
+        <div id="error" class="error" style="display: none;">
+            <h3>❌ Ошибка</h3>
+            <p id="errorMessage"></p>
+            <button type="button" onclick="location.reload()" class="btn-secondary">Попробовать снова</button>
+        </div>
+    </div>
+
+    <!-- Модальное окно для множественного выбора -->
+    <div id="multiSelectModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Выберите соответствия</h3>
+                <button type="button" class="modal-close" id="modalCloseBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-hint">Выберите соответствие или исключите пабрикушку:</p>
+                <div class="multi-select-list" id="multiSelectList">
+                    <!-- Заполняется JavaScript -->
+                </div>
+                <div class="exclude-options">
+                    <p>Или исключите пабрикушку:</p>
+                    <button type="button" class="exclude-btn" data-exclude="семена">🚫 семена</button>
+                    <button type="button" class="exclude-btn" data-exclude="НЕ ВХОДИТ В ПАТ">🚫 НЕ ВХОДИТ В ПАТ</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="confirmMultiSelectBtn" class="btn-primary">Применить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для выбора типа номера -->
+    <div id="numberTypeModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Выберите тип номера</h3>
+                <button type="button" class="modal-close" id="numberTypeModalCloseBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-hint">Номер: <strong id="currentNumberText"></strong></p>
+                <p class="modal-hint">Выберите тип номера:</p>
+                <div class="multi-select-list" id="numberTypeList">
+                    <div class="multi-select-item" data-type="Э">
+                        <strong>Тип Э</strong><br>
+                        <small>Начинается с цифры, формат XX-XX-XX (до второго дефиса)</small>
+                    </div>
+                    <div class="multi-select-item" data-type="К">
+                        <strong>Тип К</strong><br>
+                        <small>Содержит число с тремя двоеточиями (например, 123:456:789:012)</small>
+                    </div>
+                    <div class="multi-select-item" data-type="Склад">
+                        <strong>Тип Склад</strong><br>
+                        <small>Содержит слово "Склад" (исключается из обработки)</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="confirmNumberTypeBtn" class="btn-primary">Применить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let currentSessionId = null;
+        let pab1List = [];
+        let pab2List = [];
+        let field1List = [];
+        let field2List = [];
+        let currentMappings = {};
+        let currentFieldMappings = {};
+        let currentPlace = null;
+        let currentPab1ForEdit = null;
+        let currentField1ForEdit = null;
+        let autoMappedItems = new Set();  // Автозаполненные (требуют подтверждения)
+        let confirmedItems = new Set();   // Подтверждённые пользователем
+        let autoMappedFieldItems = new Set();
+        let confirmedFieldItems = new Set();
+        let dbItems = new Set();          // Взято из БД (есть в текущем файле 2)
+        let dbFieldItems = new Set();     // Взято из БД для полей
+        let dbMissingItems = new Set();   // Было в БД, но нет в текущем файле 2
+        let dbMissingFieldItems = new Set();
+
+        // Переменные для классификации номеров
+        let undefinedNumbers = [];  // Список неопределённых номеров
+        let numberStats = {};       // Статистика классификации (полная, с сервера)
+        let numberClassifications = {};  // {номер: тип} - пользовательские классификации
+        let currentNumberForEdit = null;  // Текущий номер для классификации
+        let selectedNumberType = null;  // Выбранный тип номера
+
+        // Ссылки на кнопки исключения (сохраняем один раз)
+        let excludeSeedsBtn = null;
+        let excludePatBtn = null;
+
+        // Инициализируем ссылки на кнопки после загрузки DOM
+        document.addEventListener('DOMContentLoaded', () => {
+            excludeSeedsBtn = document.querySelector('[data-exclude="семена"]');
+            excludePatBtn = document.querySelector('[data-exclude="НЕ ВХОДИТ В ПАТ"]');
+        });
+
+        // ==================== Загрузка мест ====================
+        async function loadPlaces() {
+            try {
+                const response = await fetch('/api/places');
+                const data = await response.json();
+                const select = document.getElementById('placeSelect');
+                select.innerHTML = '<option value="">-- Выберите место --</option>';
+                data.places.forEach(place => {
+                    const option = document.createElement('option');
+                    option.value = place;
+                    option.textContent = place;
+                    select.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Ошибка загрузки мест:', err);
+            }
+        }
+
+        // Загружаем места при старте
+        loadPlaces();
+
+        // ==================== Drag & drop и отображение имён файлов ====================
+        document.querySelectorAll('.drop-zone').forEach(zone => {
+            const input = zone.querySelector('.drop-zone__input');
+            const fileInfo = zone.parentElement.querySelector('.file-info');
+
+            zone.addEventListener('click', () => input.click());
+
+            input.addEventListener('change', () => {
+                if (input.files.length) {
+                    fileInfo.textContent = `Выбран: ${input.files[0].name}`;
+                    zone.classList.add('filled');
+                } else {
+                    fileInfo.textContent = '';
+                    zone.classList.remove('filled');
+                }
+                checkAllFiles();
+            });
+
+            zone.addEventListener('dragover', e => {
+                e.preventDefault();
+                zone.classList.add('dragover');
+            });
+
+            zone.addEventListener('dragleave', e => {
+                zone.classList.remove('dragover');
+            });
+
+            zone.addEventListener('drop', e => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    input.files = e.dataTransfer.files;
+                    fileInfo.textContent = `Выбран: ${input.files[0].name}`;
+                    zone.classList.add('filled');
+                }
+                checkAllFiles();
+            });
+        });
+
+        function checkAllFiles() {
+            const file1 = document.getElementById('file1').files.length;
+            const file2 = document.getElementById('file2').files.length;
+            const file3 = document.getElementById('file3').files.length;
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            analyzeBtn.disabled = !(file1 && file2 && file3);
+        }
+
+        // ==================== Шаг 1: Загрузка и анализ файлов ====================
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            formData.append('file1', document.getElementById('file1').files[0]);
+            formData.append('file2', document.getElementById('file2').files[0]);
+            formData.append('file3', document.getElementById('file3').files[0]);
+
+            showLoading('Анализ файлов...');
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка анализа файлов');
+                }
+
+                currentSessionId = data.session_id;
+                pab1List = data.pab1_list;
+                pab2List = data.pab2_list;
+                field1List = data.field1_list;
+                field2List = data.field2_list;
+
+                // Переходим к шагу 2 (выбор места)
+                document.getElementById('step1').style.display = 'none';
+                document.getElementById('step2').style.display = 'block';
+                hideLoading();
+
+            } catch (err) {
+                showError(err.message);
+            }
+        });
+
+        // ==================== Выбор места ====================
+        document.getElementById('placeSelect').addEventListener('change', async (e) => {
+            const placeName = e.target.value;
+            if (!placeName) return;
+
+            currentPlace = placeName;
+
+            // Показываем секцию классификации
+            document.getElementById('classificationSection').style.display = 'block';
+
+            // Загружаем неопределённые номера с учётом сохранённых классификаций
+            await loadUndefinedNumbers(placeName);
+        });
+
+        document.getElementById('addPlaceBtn').addEventListener('click', async () => {
+            const newPlace = document.getElementById('newPlaceInput').value.trim();
+            if (!newPlace) {
+                alert('Введите название места');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('name', newPlace);
+
+            try {
+                const response = await fetch('/api/places', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка добавления места');
+                }
+
+                // Обновляем список мест
+                await loadPlaces();
+
+                // Выбираем новое место
+                document.getElementById('placeSelect').value = newPlace;
+                currentPlace = newPlace;
+                document.getElementById('newPlaceInput').value = '';
+
+                // Показываем секцию классификации и загружаем номера
+                document.getElementById('classificationSection').style.display = 'block';
+                await loadUndefinedNumbers(newPlace);
+
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+
+        // ==================== Загрузка неопределённых номеров ====================
+        async function loadUndefinedNumbers(placeName) {
+            if (!currentSessionId) return;
+
+            showLoading('Загрузка классификации...');
+
+            try {
+                const response = await fetch(`/api/undefined-numbers/${currentSessionId}?place_name=${encodeURIComponent(placeName)}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка загрузки неопределённых номеров');
+                }
+
+                undefinedNumbers = data.undefined_numbers;
+                numberStats = data.stats;
+                
+                // Сохраняем классификации из БД для использования в статистике
+                const savedClassificationsFromBackend = data.saved_classifications || {};
+
+                console.log('Загруженная статистика:', numberStats);
+                console.log('Сохранённые классификации:', savedClassificationsFromBackend);
+                console.log('Неопределённые номера:', undefinedNumbers);
+
+                // Отображаем полную статистику по ВСЕМ номерам
+                renderClassificationStats(numberStats, savedClassificationsFromBackend);
+
+                // Если есть неопределённые номера - показываем таблицу
+                if (undefinedNumbers.length > 0) {
+                    document.getElementById('undefinedSection').style.display = 'block';
+                    renderClassificationTable();
+                    document.getElementById('saveClassificationsBtn').style.display = 'inline-block';
+                    document.getElementById('goToPabricushkiBtn').style.display = 'none';
+                } else {
+                    // Все номера классифицированы - показываем кнопку перехода
+                    document.getElementById('undefinedSection').style.display = 'none';
+                    document.getElementById('saveClassificationsBtn').style.display = 'none';
+                    document.getElementById('goToPabricushkiBtn').style.display = 'inline-block';
+                }
+
+                hideLoading();
+
+            } catch (err) {
+                hideLoading();
+                console.error('Ошибка загрузки неопределённых номеров:', err);
+                showError(err.message);
+            }
+        }
+
+        // ==================== Отображение статистики классификации ====================
+        function renderClassificationStats(stats, savedClassifications) {
+            const total = stats['Всего'] || 0;
+            const eCount = stats['Э'] || 0;
+            const kCount = stats['К'] || 0;
+            const skladCount = stats['Склад'] || 0;
+            const undefinedCount = stats['Неопределённый'] || 0;
+            const uniqueCount = stats['Уникальных всего'] || 0;
+            const savedCount = Object.keys(savedClassifications).length;
+
+            console.log('Отрисовка статистики:', { total, eCount, kCount, skladCount, undefinedCount, uniqueCount, savedCount });
+
+            const setEl = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val.toLocaleString();
+                else console.warn('Элемент не найден:', id);
+            };
+            const setWidth = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.style.width = Math.max(0, Math.min(100, val)) + '%';
+                else console.warn('Элемент не найден:', id);
+            };
+
+            // Устанавливаем значения
+            setEl('statTotal', total);
+            setEl('statUnique', uniqueCount);
+            setEl('statSaved', savedCount);
+
+            // Текстовые значения для типов
+            setEl('statEText', eCount);
+            setEl('statKText', kCount);
+            setEl('statSkladText', skladCount);
+            setEl('statUndefinedText', undefinedCount);
+
+            // Прогресс-бары (процент от общего количества ВСЕХ строк)
+            if (total > 0) {
+                setWidth('statEBar', (eCount / total * 100));
+                setWidth('statKBar', (kCount / total * 100));
+                setWidth('statSkladBar', (skladCount / total * 100));
+                setWidth('statUndefinedBar', (undefinedCount / total * 100));
+            } else {
+                // Если всего 0, обнуляем все прогресс-бары
+                setWidth('statEBar', 0);
+                setWidth('statKBar', 0);
+                setWidth('statSkladBar', 0);
+                setWidth('statUndefinedBar', 0);
+            }
+        }
+
+        // ==================== Рендеринг таблицы классификации ====================
+        function renderClassificationTable() {
+            const tbody = document.getElementById('classificationTableBody');
+            if (!tbody) {
+                console.error('tbody не найден!');
+                return;
+            }
+            
+            tbody.innerHTML = '';
+
+            undefinedNumbers.forEach(num => {
+                const currentType = numberClassifications[num] || '';
+
+                let statusIcon = '⏳';
+                let statusClass = 'pending';
+                let displayText = '— Выберите тип —';
+                let displayClass = 'unmapped';
+
+                if (currentType) {
+                    statusIcon = '✅';
+                    statusClass = 'mapped';
+                    displayText = `Тип ${currentType}`;
+                    displayClass = 'mapped';
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="pab1-cell" title="${escapeHtml(num)}">${escapeHtml(num)}</td>
+                    <td class="mapping-cell">
+                        <div class="mapping-display ${displayClass}">${displayText}</div>
+                        <button type="button" class="edit-mapping-btn" data-number="${encodeURIComponent(num)}">✏️ Изменить</button>
+                    </td>
+                    <td class="status-cell ${statusClass}">${statusIcon}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ==================== Модальное окно для выбора типа номера ====================
+        function openNumberTypeModal(number) {
+            currentNumberForEdit = number;
+            selectedNumberType = null;
+            
+            console.log('Открываем модальное окно для номера:', number);
+
+            const modal = document.getElementById('numberTypeModal');
+            if (!modal) {
+                console.error('Модальное окно не найдено!');
+                return;
+            }
+            
+            document.getElementById('currentNumberText').textContent = number;
+
+            // Сбрасываем выделение
+            document.querySelectorAll('#numberTypeList .multi-select-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+
+            // Если уже выбран тип - выделяем его
+            const currentType = numberClassifications[number];
+            if (currentType) {
+                const selectedItem = document.querySelector(`#numberTypeList .multi-select-item[data-type="${currentType}"]`);
+                if (selectedItem) {
+                    selectedItem.classList.add('selected');
+                    selectedNumberType = currentType;
+                    console.log('Восстановлен тип:', currentType);
+                }
+            }
+
+            modal.style.display = 'flex';
+            console.log('Модальное окно открыто');
+        }
+
+        // Делегирование событий для кнопок выбора типа номера
+        document.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.edit-mapping-btn');
+            if (editBtn && editBtn.dataset.number) {
+                // Декодируем номер из URL формата
+                const number = decodeURIComponent(editBtn.dataset.number);
+                console.log('Клик по кнопке редактирования для:', number);
+                openNumberTypeModal(number);
+                return;
+            }
+
+            // Выбор типа номера в модальном окне
+            const typeItem = e.target.closest('#numberTypeList .multi-select-item');
+            if (typeItem) {
+                document.querySelectorAll('#numberTypeList .multi-select-item').forEach(i => i.classList.remove('selected'));
+                typeItem.classList.add('selected');
+                selectedNumberType = typeItem.dataset.type;
+                console.log('Выбран тип:', selectedNumberType);
+                return;
+            }
+
+            // Закрытие модального окна
+            const closeBtn = e.target.closest('#numberTypeModalCloseBtn');
+            if (closeBtn) {
+                document.getElementById('numberTypeModal').style.display = 'none';
+                console.log('Модальное окно закрыто');
+                return;
+            }
+
+            // Подтверждение выбора
+            const confirmBtn = e.target.closest('#confirmNumberTypeBtn');
+            if (confirmBtn) {
+                console.log('Нажата кнопка Применить');
+                console.log('currentNumberForEdit:', currentNumberForEdit);
+                console.log('selectedNumberType:', selectedNumberType);
+                
+                if (!currentNumberForEdit || !selectedNumberType) {
+                    console.error('Нет номера или типа!');
+                    return;
+                }
+
+                numberClassifications[currentNumberForEdit] = selectedNumberType;
+                console.log('Сохранено:', currentNumberForEdit, '->', selectedNumberType);
+                console.log('Все классификации:', numberClassifications);
+                
+                document.getElementById('numberTypeModal').style.display = 'none';
+
+                // Перерисовываем таблицу с обновлёнными данными
+                console.log('Перерисовка таблицы...');
+                renderClassificationTable();
+                return;
+            }
+        });
+
+        // ==================== Сохранение классификации номеров ====================
+        document.getElementById('saveClassificationsBtn').addEventListener('click', async () => {
+            if (!currentSessionId) {
+                alert('Сессия не найдена');
+                return;
+            }
+
+            // Проверяем, все ли номера классифицированы
+            const unclassified = undefinedNumbers.filter(num => !numberClassifications[num]);
+            if (unclassified.length > 0) {
+                alert(`Пожалуйста, классифицируйте все неопределённые номера. Осталось: ${unclassified.length}`);
+                return;
+            }
+
+            showLoading('Сохранение классификации...');
+
+            // Преобразуем классификации в формат для бэкенда
+            const classificationsForBackend = {};
+            for (const [num, type] of Object.entries(numberClassifications)) {
+                classificationsForBackend[num] = type;
+            }
+
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('place_name', currentPlace);
+            formData.append('classifications', JSON.stringify(classificationsForBackend));
+
+            try {
+                const response = await fetch('/api/classify-numbers', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка сохранения классификации');
+                }
+
+                alert('✅ Классификация номеров сохранена!');
+                hideLoading();
+
+                // Показываем кнопку перехода к пабрикушкам
+                document.getElementById('saveClassificationsBtn').style.display = 'none';
+                document.getElementById('goToPabricushkiBtn').style.display = 'inline-block';
+                document.getElementById('undefinedSection').style.display = 'none';
+
+                // После сохранения ПЕРЕЗАГРУЖАЕМ статистику с сервера для актуальных данных
+                // Это гарантирует, что статистика будет точной при повторной загрузке
+                await loadUndefinedNumbers(currentPlace);
+
+            } catch (err) {
+                hideLoading();
+                alert('Ошибка: ' + err.message);
+            }
+        });
+
+        // Кнопка перехода к пабрикушкам
+        document.getElementById('goToPabricushkiBtn').addEventListener('click', () => {
+            document.getElementById('classificationSection').style.display = 'none';
+            document.getElementById('mappingSection').style.display = 'block';
+            document.querySelector('#step2 h2').textContent = 'Шаг 3: Сопоставление пабрикушек';
+            
+            // Загружаем автоматические сопоставления для пабрикушек
+            if (currentPlace) {
+                loadAutoMappings(currentPlace);
+            }
+        });
+
+        document.getElementById('addPlaceBtn').addEventListener('click', async () => {
+            const newPlace = document.getElementById('newPlaceInput').value.trim();
+            if (!newPlace) {
+                alert('Введите название места');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('name', newPlace);
+
+            try {
+                const response = await fetch('/api/places', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка добавления места');
+                }
+
+                // Обновляем список мест
+                await loadPlaces();
+                
+                // Выбираем новое место
+                document.getElementById('placeSelect').value = newPlace;
+                currentPlace = newPlace;
+                document.getElementById('newPlaceInput').value = '';
+
+                // Показываем секцию классификации и загружаем номера
+                document.getElementById('classificationSection').style.display = 'block';
+                await loadUndefinedNumbers(newPlace);
+
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+
+        // ==================== Загрузка автоматических сопоставлений ====================
+        async function loadAutoMappings(placeName) {
+            if (!currentSessionId) return;
+
+            showLoading('Загрузка сопоставлений...');
+
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('place_name', placeName);
+
+            try {
+                const response = await fetch('/api/auto-map', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка загрузки сопоставлений');
+                }
+
+                // Обновляем список pab2 из текущей сессии
+                pab2List = data.pab2_list || [];
+
+                // Обрабатываем новый формат mappings: {pab1: {value, source}}
+                const mappingsData = data.mappings;
+
+                // Сбрасываем все наборы
+                confirmedItems.clear();
+                autoMappedItems.clear();
+                dbItems.clear();
+                dbMissingItems.clear();
+                currentMappings = {};
+
+                for (const [pab1, info] of Object.entries(mappingsData)) {
+                    if (!info) continue;  // Защита от null
+                    const { value, source } = info;
+                    currentMappings[pab1] = value;
+
+                    if (source === 'db') {
+                        // Значение из БД, есть в текущем файле 2 — автоматически выбрано
+                        dbItems.add(pab1);
+                        confirmedItems.add(pab1);
+                    } else if (source === 'db_missing') {
+                        // Было в БД, но нет в текущем файле 2 — не выбрано
+                        dbMissingItems.add(pab1);
+                    } else if (source === 'auto') {
+                        // Авто-сопоставление
+                        autoMappedItems.add(pab1);
+                    } else if (source === 'excluded') {
+                        // Исключено
+                        confirmedItems.add(pab1);
+                    }
+                    // source === null — нет совпадения, не добавляем никуда
+                }
+
+                renderMappingTable();
+                document.getElementById('mappingSection').style.display = 'block';
+                hideLoading();
+
+            } catch (err) {
+                hideLoading();
+                showError(err.message);
+            }
+        }
+
+        // ==================== Рендеринг таблицы сопоставлений ====================
+        function renderMappingTable() {
+            const tbody = document.getElementById('mappingTableBody');
+            tbody.innerHTML = '';
+
+            // Разделяем на новые (свежие) и существующие
+            const newItems = [];
+            const existingItems = [];
+
+            pab1List.forEach(pab1 => {
+                if (confirmedItems.has(pab1) || dbItems.has(pab1) || currentMappings[pab1] !== undefined) {
+                    existingItems.push(pab1);
+                } else {
+                    newItems.push(pab1);
+                }
+            });
+
+            // Сортируем: новые сверху, потом существующие
+            const sortedList = [...newItems, ...existingItems];
+
+            sortedList.forEach(pab1 => {
+                const tr = document.createElement('tr');
+
+                const mappedValue = currentMappings[pab1];
+                const isExcluded = mappedValue === null;
+                const hasMapping = mappedValue !== undefined && mappedValue !== null;
+                const isAutoMapped = autoMappedItems.has(pab1);
+                const isFromDb = dbItems.has(pab1);
+                const isDbMissing = dbMissingItems.has(pab1);
+                const isNew = !confirmedItems.has(pab1) && !dbItems.has(pab1) && currentMappings[pab1] === undefined;
+
+                let statusIcon = '⏳';
+                let statusClass = 'pending';
+                if (isExcluded) {
+                    statusIcon = '🚫';
+                    statusClass = 'excluded';
+                } else if (hasMapping) {
+                    statusIcon = '✅';
+                    statusClass = 'mapped';
+                }
+
+                // Определяем текст отображения
+                let displayText = '—';
+                let displayClass = 'unmapped';
+                if (isExcluded) {
+                    // Определяем категорию исключения по названию пабрикушки
+                    const exclusionCategory = pab1.toLowerCase().includes('семена') ? 'семена' : 'НЕ ВХОДИТ В ПАТ';
+                    displayText = `🚫 ${exclusionCategory}`;
+                    displayClass = 'excluded';
+                } else if (hasMapping) {
+                    displayText = escapeHtml(mappedValue);
+                    displayClass = 'mapped';
+                } else if (isDbMissing) {
+                    displayText = '⚠️ Было в БД, но нет в текущем файле';
+                    displayClass = 'unmapped';
+                }
+
+                // Плашки
+                let badges = '';
+                if (isNew) {
+                    badges += '<span class="badge badge-new">Свежие</span>';
+                }
+                if (isFromDb) {
+                    badges += '<span class="badge badge-db">Из БД</span>';
+                } else if (isAutoMapped && !confirmedItems.has(pab1)) {
+                    badges += '<span class="badge badge-auto">Авто</span>';
+                }
+
+                // Кнопка подтверждения для автозаполненных
+                let confirmButton = '';
+                if (isAutoMapped && !confirmedItems.has(pab1) && hasMapping) {
+                    confirmButton = `<button type="button" class="confirm-btn" data-pab1="${escapeHtml(pab1)}">✓</button>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="pab1-cell" title="${escapeHtml(pab1)}">
+                        ${escapeHtml(pab1)}
+                        ${badges}
+                    </td>
+                    <td class="mapping-cell">
+                        <div class="mapping-display ${displayClass}">${displayText}</div>
+                        ${confirmButton}
+                        <button type="button" class="edit-mapping-btn" data-pab1="${escapeHtml(pab1)}">✏️ Изменить</button>
+                    </td>
+                    <td class="status-cell ${statusClass}">${statusIcon}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Добавляем обработчики к кнопкам редактирования
+            document.querySelectorAll('.edit-mapping-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const pab1 = e.target.dataset.pab1;
+                    openMultiSelectModal(pab1);
+                });
+            });
+
+            // Добавляем обработчики к кнопкам подтверждения
+            document.querySelectorAll('.confirm-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const pab1 = e.target.dataset.pab1;
+                    confirmMapping(pab1);
+                });
+            });
+        }
+        
+        // ==================== Подтверждение автозаполнения ====================
+        function confirmMapping(pab1) {
+            autoMappedItems.delete(pab1);
+            dbItems.delete(pab1);
+            dbMissingItems.delete(pab1);
+            confirmedItems.add(pab1);
+            renderMappingTable();
+        }
+        
+        // ==================== Делегирование событий для кнопок ====================
+        // Один обработчик на весь документ - ловит клики по всем кнопкам
+        document.addEventListener('click', (e) => {
+            const target = e.target;
+            
+            // Кнопка редактирования - ищем ближайшую кнопку с классом edit-mapping-btn
+            const editBtn = target.closest('.edit-mapping-btn');
+            if (editBtn) {
+                const pab1 = editBtn.dataset.pab1;
+                const field1 = editBtn.dataset.field1;
+                
+                if (pab1) {
+                    openMultiSelectModal(pab1);
+                    return;
+                }
+                if (field1) {
+                    openFieldMultiSelectModal(field1);
+                    return;
+                }
+            }
+
+            // Кнопка подтверждения - ищем ближайшую кнопку с классом confirm-btn
+            const confirmBtn = target.closest('.confirm-btn');
+            if (confirmBtn) {
+                const pab1 = confirmBtn.dataset.pab1;
+                const field1 = confirmBtn.dataset.field1;
+                
+                if (pab1) {
+                    confirmMapping(pab1);
+                    return;
+                }
+                if (field1) {
+                    confirmFieldMapping(field1);
+                    return;
+                }
+            }
+        });
+
+        // ==================== Модальное окно множественного выбора ====================
+        function openMultiSelectModal(pab1) {
+            currentPab1ForEdit = pab1;
+            const modal = document.getElementById('multiSelectModal');
+            const list = document.getElementById('multiSelectList');
+            const excludeSection = document.querySelector('.exclude-options');
+
+            list.innerHTML = '';
+
+            // Показываем ТОЛЬКО пабрикушки из текущего файла 2
+            pab2List.forEach(pab2 => {
+                const item = document.createElement('div');
+                item.className = 'multi-select-item';
+                item.textContent = pab2;
+                item.dataset.value = pab2;
+
+                // Если текущее значение совпадает - выделяем
+                if (currentMappings[pab1] === pab2) {
+                    item.classList.add('selected');
+                }
+
+                item.addEventListener('click', () => {
+                    // Снимаем выделение с других
+                    document.querySelectorAll('.multi-select-item').forEach(i => i.classList.remove('selected'));
+                    document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('selected'));
+                    // Выделяем текущий
+                    item.classList.add('selected');
+                });
+                list.appendChild(item);
+            });
+
+            // Добавляем опцию "Оставить как есть" в конец списка
+            const sameNameItem = document.createElement('div');
+            sameNameItem.className = 'multi-select-item multi-select-item-same';
+            sameNameItem.textContent = `💾 Оставить как есть: "${pab1}"`;
+            sameNameItem.dataset.value = pab1;  // Значение равно названию из Файла 1
+
+            // Если текущее значение равно названию пабрикушки - выделяем
+            if (currentMappings[pab1] === pab1) {
+                sameNameItem.classList.add('selected');
+            }
+
+            sameNameItem.addEventListener('click', () => {
+                // Снимаем выделение с других
+                document.querySelectorAll('.multi-select-item').forEach(i => i.classList.remove('selected'));
+                document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('selected'));
+                // Выделяем текущий
+                sameNameItem.classList.add('selected');
+            });
+            list.appendChild(sameNameItem);
+
+            // Восстанавливаем стили кнопок исключения для пабрикушек
+            excludeSection.style.display = 'block';
+            excludeSection.querySelector('p').textContent = 'Или исключите пабрикушку:';
+            excludeSection.querySelector('[data-exclude="семена"]').textContent = '🚫 семена';
+            excludeSection.querySelector('[data-exclude="семена"]').dataset.exclude = 'семена';
+            excludeSection.querySelector('[data-exclude="семена"]').style.display = 'inline-block';
+            excludeSection.querySelector('[data-exclude="НЕ ВХОДИТ В ПАТ"]').style.display = 'inline-block';
+
+            // Проверяем, не исключено ли уже текущее значение
+            if (currentMappings[pab1] === null) {
+                document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('selected'));
+                // Определяем тип исключения
+                if (pab1.toLowerCase().includes('семена')) {
+                    excludeSection.querySelector('[data-exclude="семена"]').classList.add('selected');
+                } else {
+                    excludeSection.querySelector('[data-exclude="НЕ ВХОДИТ В ПАТ"]').classList.add('selected');
+                }
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        document.getElementById('modalCloseBtn').addEventListener('click', () => {
+            document.getElementById('multiSelectModal').style.display = 'none';
+        });
+
+        document.getElementById('confirmMultiSelectBtn').addEventListener('click', () => {
+            if (!currentPab1ForEdit) return;
+
+            const selectedItems = document.querySelectorAll('.multi-select-item.selected');
+            const selectedExclude = document.querySelector('.exclude-btn.selected');
+
+            if (selectedItems.length > 0) {
+                // Выбрано соответствие из списка
+                const value = selectedItems[0].dataset.value;
+                currentMappings[currentPab1ForEdit] = value;
+                // Убираем из всех наборов и добавляем в подтверждённые
+                autoMappedItems.delete(currentPab1ForEdit);
+                dbItems.delete(currentPab1ForEdit);
+                dbMissingItems.delete(currentPab1ForEdit);
+                confirmedItems.add(currentPab1ForEdit);
+            } else if (selectedExclude) {
+                // Выбрано исключение
+                currentMappings[currentPab1ForEdit] = null;
+                autoMappedItems.delete(currentPab1ForEdit);
+                dbItems.delete(currentPab1ForEdit);
+                dbMissingItems.delete(currentPab1ForEdit);
+                confirmedItems.add(currentPab1ForEdit);
+            }
+
+            document.getElementById('multiSelectModal').style.display = 'none';
+            renderMappingTable();
+        });
+
+        // Обработчики кнопок исключения
+        document.querySelectorAll('.exclude-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('selected'));
+                document.querySelectorAll('.multi-select-item').forEach(i => i.classList.remove('selected'));
+                btn.classList.add('selected');
+            });
+        });
+        
+        // Обработчик для скрытия секции исключения при выборе элемента списка
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('multi-select-item')) {
+                document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('selected'));
+            }
+        });
+
+        // ==================== Авто-сопоставление ====================
+        document.getElementById('autoMapBtn').addEventListener('click', async () => {
+            if (!currentPlace) {
+                alert('Сначала выберите место');
+                return;
+            }
+            await loadAutoMappings(currentPlace);
+        });
+
+        // ==================== Сброс сопоставлений ====================
+        document.getElementById('resetMappingsBtn').addEventListener('click', () => {
+            if (!confirm('Сбросить все сопоставления?')) return;
+            
+            currentMappings = {};
+            renderMappingTable();
+        });
+
+        // ==================== Сохранение сопоставлений ====================
+        document.getElementById('saveMappingsBtn').addEventListener('click', async () => {
+            if (!currentPlace) {
+                alert('Сначала выберите место');
+                return;
+            }
+
+            if (!currentSessionId) {
+                alert('Сессия не найдена');
+                return;
+            }
+
+            showLoading('Сохранение соотношений...');
+
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('place_name', currentPlace);
+            formData.append('mappings', JSON.stringify(currentMappings));
+
+            try {
+                const response = await fetch('/api/mappings', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка сохранения соотношений');
+                }
+
+                alert('✅ Соотношения сохранены для места "' + currentPlace + '"');
+                hideLoading();
+
+            } catch (err) {
+                hideLoading();
+                alert('Ошибка: ' + err.message);
+            }
+        });
+
+        // ==================== Формирование отчёта ====================
+        document.getElementById('processBtn').addEventListener('click', async () => {
+            if (!currentPlace) {
+                alert('Сначала выберите место');
+                return;
+            }
+
+            if (!currentSessionId) {
+                alert('Сессия не найдена');
+                return;
+            }
+
+            showLoading('Формирование отчёта...');
+
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('place_name', currentPlace);
+
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка формирования отчёта');
+                }
+
+                // Файл уже сохранён в ~/Downloads, показываем уведомление
+                document.getElementById('step2').style.display = 'none';
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('result').innerHTML = `
+                    <h3>✅ Готово!</h3>
+                    <p>Файл успешно обработан.</p>
+                    <button type="button" id="downloadResultBtn" class="btn-primary">📥 Скачать результат</button>
+                    <button type="button" id="newReportBtn" class="btn-secondary" style="margin-top: 10px;">Создать новый отчёт</button>
+                `;
+                
+                // Обработчик кнопки скачивания
+                document.getElementById('downloadResultBtn').addEventListener('click', () => {
+                    window.location.href = data.download_url;
+                });
+                
+                // Обработчик кнопки нового отчёта
+                document.getElementById('newReportBtn').addEventListener('click', () => {
+                    location.reload();
+                });
+                
+                hideLoading();
+
+            } catch (err) {
+                hideLoading();
+                showError(err.message);
+            }
+        });
+
+        // ==================== Новый отчёт ====================
+        document.getElementById('newReportBtn').addEventListener('click', () => {
+            location.reload();
+        });
+
+        // ==================== Переход между этапами ====================
+        document.getElementById('goToFieldsBtn').addEventListener('click', () => {
+            document.getElementById('pabMappingStep').style.display = 'none';
+            document.getElementById('fieldMappingStep').style.display = 'block';
+            // Загружаем авто-сопоставления для полей
+            if (currentPlace) {
+                loadAutoFieldMappings(currentPlace);
+            }
+        });
+
+        document.getElementById('backToPabsBtn').addEventListener('click', () => {
+            document.getElementById('fieldMappingStep').style.display = 'none';
+            document.getElementById('pabMappingStep').style.display = 'block';
+        });
+
+        // ==================== Загрузка авто-сопоставлений для полей ====================
+        async function loadAutoFieldMappings(placeName) {
+            if (!currentSessionId) return;
+
+            showLoading('Загрузка сопоставлений полей...');
+
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('place_name', placeName);
+
+            try {
+                const response = await fetch('/api/auto-map-fields', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка загрузки сопоставлений полей');
+                }
+
+                // Обновляем список field2 из текущей сессии
+                field2List = data.field2_list || [];
+
+                // Обрабатываем новый формат mappings: {field1: {value, source}}
+                const mappingsData = data.mappings;
+
+                // Сбрасываем все наборы
+                confirmedFieldItems.clear();
+                autoMappedFieldItems.clear();
+                dbFieldItems.clear();
+                dbMissingFieldItems.clear();
+                currentFieldMappings = {};
+
+                for (const [field1, info] of Object.entries(mappingsData)) {
+                    if (!info) continue;  // Защита от null
+                    const { value, source } = info;
+                    currentFieldMappings[field1] = value;
+
+                    if (source === 'db') {
+                        dbFieldItems.add(field1);
+                        confirmedFieldItems.add(field1);
+                    } else if (source === 'db_missing') {
+                        dbMissingFieldItems.add(field1);
+                    } else if (source === 'auto') {
+                        autoMappedFieldItems.add(field1);
+                    } else if (source === 'excluded') {
+                        confirmedFieldItems.add(field1);
+                    }
+                }
+
+                renderFieldMappingTable();
+                hideLoading();
+
+            } catch (err) {
+                hideLoading();
+                showError(err.message);
+            }
+        }
+
+        // ==================== Рендеринг таблицы сопоставления полей ====================
+        function renderFieldMappingTable() {
+            const tbody = document.getElementById('fieldMappingTableBody');
+            tbody.innerHTML = '';
+
+            // Разделяем на новые и существующие
+            const newItems = [];
+            const existingItems = [];
+
+            field1List.forEach(field1 => {
+                if (confirmedFieldItems.has(field1) || dbFieldItems.has(field1) || currentFieldMappings[field1] !== undefined) {
+                    existingItems.push(field1);
+                } else {
+                    newItems.push(field1);
+                }
+            });
+
+            const sortedList = [...newItems, ...existingItems];
+
+            sortedList.forEach(field1 => {
+                const tr = document.createElement('tr');
+
+                const mappedValue = currentFieldMappings[field1];
+                const isExcluded = mappedValue === null;
+                const hasMapping = mappedValue !== undefined && mappedValue !== null;
+                const isAutoMapped = autoMappedFieldItems.has(field1);
+                const isFromDb = dbFieldItems.has(field1);
+                const isDbMissing = dbMissingFieldItems.has(field1);
+                const isNew = !confirmedFieldItems.has(field1) && !dbFieldItems.has(field1) && currentFieldMappings[field1] === undefined;
+
+                let statusIcon = '⏳';
+                let statusClass = 'pending';
+                if (isExcluded) {
+                    statusIcon = '🚫';
+                    statusClass = 'excluded';
+                } else if (hasMapping) {
+                    statusIcon = '✅';
+                    statusClass = 'mapped';
+                }
+
+                let displayText = '—';
+                let displayClass = 'unmapped';
+                if (isExcluded) {
+                    displayText = '🚫 не учитываем!!';
+                    displayClass = 'excluded';
+                } else if (hasMapping) {
+                    displayText = escapeHtml(mappedValue);
+                    displayClass = 'mapped';
+                } else if (isDbMissing) {
+                    displayText = '⚠️ Было в БД, но нет в текущем файле';
+                    displayClass = 'unmapped';
+                }
+
+                let badges = '';
+                if (isNew) {
+                    badges += '<span class="badge badge-new">Свежие</span>';
+                }
+                if (isFromDb) {
+                    badges += '<span class="badge badge-db">Из БД</span>';
+                } else if (isAutoMapped && !confirmedFieldItems.has(field1)) {
+                    badges += '<span class="badge badge-auto">Авто</span>';
+                }
+
+                let confirmButton = '';
+                if (isAutoMapped && !confirmedFieldItems.has(field1) && hasMapping) {
+                    confirmButton = `<button type="button" class="confirm-btn" data-field1="${escapeHtml(field1)}">✓</button>`;
+                }
+
+                tr.innerHTML = `
+                    <td class="pab1-cell" title="${escapeHtml(field1)}">
+                        ${escapeHtml(field1)}
+                        ${badges}
+                    </td>
+                    <td class="mapping-cell">
+                        <div class="mapping-display ${displayClass}">${displayText}</div>
+                        ${confirmButton}
+                        <button type="button" class="edit-mapping-btn" data-field1="${escapeHtml(field1)}">✏️ Изменить</button>
+                    </td>
+                    <td class="status-cell ${statusClass}">${statusIcon}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            // Обработчики НЕ добавляем здесь - используем делегирование
+        }
+
+        function confirmFieldMapping(field1) {
+            autoMappedFieldItems.delete(field1);
+            dbFieldItems.delete(field1);
+            dbMissingFieldItems.delete(field1);
+            confirmedFieldItems.add(field1);
+            renderFieldMappingTable();
+        }
+
+        // ==================== Модальное окно для полей ====================
+        function openFieldMultiSelectModal(field1) {
+            currentField1ForEdit = field1;
+            const modal = document.getElementById('multiSelectModal');
+            const list = document.getElementById('multiSelectList');
+            const excludeSection = document.querySelector('.exclude-options');
+
+            // Восстанавливаем исходное состояние кнопок исключения
+            if (excludeSeedsBtn && excludePatBtn) {
+                excludeSeedsBtn.textContent = '🚫 семена';
+                excludeSeedsBtn.dataset.exclude = 'семена';
+                excludeSeedsBtn.style.display = 'inline-block';
+                excludePatBtn.style.display = 'inline-block';
+            }
+
+            list.innerHTML = '';
+
+            // Показываем ТОЛЬКО названия из текущего файла 2
+            field2List.forEach(field2 => {
+                const item = document.createElement('div');
+                item.className = 'multi-select-item';
+                item.textContent = field2;
+                item.dataset.value = field2;
+
+                if (currentFieldMappings[field1] === field2) {
+                    item.classList.add('selected');
+                }
+
+                item.addEventListener('click', () => {
+                    document.querySelectorAll('.multi-select-item').forEach(i => i.classList.remove('selected'));
+                    document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('selected'));
+                    item.classList.add('selected');
+                });
+                list.appendChild(item);
+            });
+
+            // Опция "Оставить как есть"
+            const sameNameItem = document.createElement('div');
+            sameNameItem.className = 'multi-select-item multi-select-item-same';
+            sameNameItem.textContent = `💾 Оставить как есть: "${field1}"`;
+            sameNameItem.dataset.value = field1;
+
+            if (currentFieldMappings[field1] === field1) {
+                sameNameItem.classList.add('selected');
+            }
+
+            sameNameItem.addEventListener('click', () => {
+                document.querySelectorAll('.multi-select-item').forEach(i => i.classList.remove('selected'));
+                document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('selected'));
+                sameNameItem.classList.add('selected');
+            });
+            list.appendChild(sameNameItem);
+
+            // Показываем только одну кнопку исключения для полей
+            excludeSection.style.display = 'block';
+            excludeSection.querySelector('p').textContent = 'Или исключите название поля:';
+            if (excludeSeedsBtn) {
+                excludeSeedsBtn.textContent = '🚫 не учитываем!!';
+                excludeSeedsBtn.dataset.exclude = 'не учитываем!!';
+            }
+            if (excludePatBtn) {
+                excludePatBtn.style.display = 'none';
+            }
+
+            // Проверяем, не исключено ли уже текущее значение
+            if (currentFieldMappings[field1] === null) {
+                document.querySelectorAll('.exclude-btn').forEach(b => b.classList.remove('selected'));
+                if (excludeSeedsBtn) {
+                    excludeSeedsBtn.classList.add('selected');
+                }
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        document.getElementById('confirmMultiSelectBtn').addEventListener('click', () => {
+            // Проверяем, для чего открыто окно (для пабрикушек или полей)
+            if (currentPab1ForEdit) {
+                const selectedItems = document.querySelectorAll('.multi-select-item.selected');
+                const selectedExclude = document.querySelector('.exclude-btn.selected');
+
+                if (selectedItems.length > 0) {
+                    const value = selectedItems[0].dataset.value;
+                    currentMappings[currentPab1ForEdit] = value;
+                    autoMappedItems.delete(currentPab1ForEdit);
+                    dbItems.delete(currentPab1ForEdit);
+                    dbMissingItems.delete(currentPab1ForEdit);
+                    confirmedItems.add(currentPab1ForEdit);
+                } else if (selectedExclude) {
+                    currentMappings[currentPab1ForEdit] = null;
+                    autoMappedItems.delete(currentPab1ForEdit);
+                    dbItems.delete(currentPab1ForEdit);
+                    dbMissingItems.delete(currentPab1ForEdit);
+                    confirmedItems.add(currentPab1ForEdit);
+                }
+
+                document.getElementById('multiSelectModal').style.display = 'none';
+                currentPab1ForEdit = null;
+                renderMappingTable();
+            } else if (currentField1ForEdit) {
+                const selectedItems = document.querySelectorAll('.multi-select-item.selected');
+                const selectedExclude = document.querySelector('.exclude-btn.selected');
+
+                if (selectedItems.length > 0) {
+                    const value = selectedItems[0].dataset.value;
+                    currentFieldMappings[currentField1ForEdit] = value;
+                    autoMappedFieldItems.delete(currentField1ForEdit);
+                    dbFieldItems.delete(currentField1ForEdit);
+                    dbMissingFieldItems.delete(currentField1ForEdit);
+                    confirmedFieldItems.add(currentField1ForEdit);
+                } else if (selectedExclude) {
+                    // Исключение для полей
+                    currentFieldMappings[currentField1ForEdit] = null;
+                    autoMappedFieldItems.delete(currentField1ForEdit);
+                    dbFieldItems.delete(currentField1ForEdit);
+                    dbMissingFieldItems.delete(currentField1ForEdit);
+                    confirmedFieldItems.add(currentField1ForEdit);
+                }
+                document.getElementById('multiSelectModal').style.display = 'none';
+                currentField1ForEdit = null;
+                renderFieldMappingTable();
+            }
+        });
+
+        // ==================== Авто-сопоставление полей ====================
+        document.getElementById('autoMapFieldsBtn').addEventListener('click', async () => {
+            if (!currentPlace) {
+                alert('Сначала выберите место');
+                return;
+            }
+            await loadAutoFieldMappings(currentPlace);
+        });
+
+        // ==================== Сброс сопоставлений полей ====================
+        document.getElementById('resetFieldMappingsBtn').addEventListener('click', () => {
+            if (!confirm('Сбросить все сопоставления полей?')) return;
+
+            currentFieldMappings = {};
+            autoMappedFieldItems.clear();
+            confirmedFieldItems.clear();
+            renderFieldMappingTable();
+        });
+
+        // ==================== Сохранение сопоставлений полей ====================
+        document.getElementById('saveFieldMappingsBtn').addEventListener('click', async () => {
+            if (!currentPlace) {
+                alert('Сначала выберите место');
+                return;
+            }
+
+            if (!currentSessionId) {
+                alert('Сессия не найдена');
+                return;
+            }
+
+            showLoading('Сохранение соотношений полей...');
+
+            const formData = new FormData();
+            formData.append('session_id', currentSessionId);
+            formData.append('place_name', currentPlace);
+            formData.append('mappings', JSON.stringify(currentFieldMappings));
+
+            try {
+                const response = await fetch('/api/field-mappings', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка сохранения соотношений полей');
+                }
+
+                alert('✅ Соотношения полей сохранены для места "' + currentPlace + '"');
+                hideLoading();
+
+            } catch (err) {
+                hideLoading();
+                alert('Ошибка: ' + err.message);
+            }
+        });
+
+        // ==================== Утилиты ====================
+        function showLoading(text) {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showError(message) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('errorMessage').textContent = message;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

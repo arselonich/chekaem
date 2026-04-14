@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import re
+import zipfile
+import os
 from pathlib import Path
 from difflib import SequenceMatcher
 from typing import Dict, List, Tuple, Optional, Literal
@@ -135,19 +137,73 @@ def read_first_file(file_path):
     """
     Читает первый файл (лист "TDSheet"), пропуская первые 9 строк.
     Возвращает DataFrame с колонками:
-        пабрикушка (B), номер (D), название_номера (G), вес (I)
+        пабрикушка (A), номер (D), название_номера (G), вес (H)
     """
+    # Проверяем существование файла
+    if not os.path.exists(file_path):
+        raise ValueError(f"Файл не найден: {file_path}")
+    
+    # Проверяем, является ли файл валидным Excel-файлом
+    def is_valid_excel_file(file_path):
+        """Проверяет, является ли файл валидным Excel файлом."""
+        try:
+            # Проверяем расширение
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext == '.xlsx':
+                # Проверяем, является ли файл валидным ZIP-архивом
+                try:
+                    with zipfile.ZipFile(file_path, 'r') as zf:
+                        # Проверяем наличие обязательных файлов в .xlsx
+                        required_files = ['xl/workbook.xml', 'xl/worksheets/']
+                        for file in zf.namelist():
+                            if file.startswith('xl/worksheets/'):
+                                return True
+                        return False
+                except zipfile.BadZipFile:
+                    return False
+            elif ext == '.xls':
+                # Для .xls файлов просто проверяем существование
+                return True
+            else:
+                return False
+        except Exception:
+            return False
+    
+    if not is_valid_excel_file(file_path):
+        raise ValueError(
+            f"Файл '{os.path.basename(file_path)}' не является валидным Excel-файлом. "
+            "Возможные причины:\n"
+            "1. Файл повреждён или неполный\n"
+            "2. Файл имеет расширение .xlsx, но на самом деле это .xls\n"
+            "3. Файл был создан некорректно\n"
+            "Пожалуйста, откройте файл в Excel и сохраните как новый .xlsx файл."
+        )
+    
     try:
+        # Определяем движок в зависимости от расширения файла
+        ext = os.path.splitext(file_path)[1].lower()
+        engine = 'openpyxl' if ext == '.xlsx' else 'xlrd'
+        
         # Читаем без заголовков, пропускаем 9 строк, данные начинаются с 10-й (индекс 9 в pandas)
-        df = pd.read_excel(file_path, sheet_name="TDSheet", header=None, skiprows=9, dtype=str)
+        df = pd.read_excel(file_path, sheet_name="TDSheet", header=None, skiprows=9, dtype=str, engine=engine)
     except Exception as e:
-        raise ValueError(f"Ошибка чтения первого файла: {e}")
+        # Проверяем, является ли ошибка связанной с отсутствием sharedStrings.xml
+        error_msg = str(e)
+        if 'sharedStrings.xml' in error_msg:
+            raise ValueError(
+                f"Ошибка чтения Excel-файла: файл повреждён или не является валидным .xlsx файлом.\n"
+                f"Ошибка: {error_msg}\n"
+                "Пожалуйста, откройте файл в Excel и сохраните как новый .xlsx файл, "
+                "или убедитесь, что файл не был создан некорректной программой."
+            )
+        else:
+            raise ValueError(f"Ошибка чтения первого файла: {error_msg}")
 
-    # Выбираем нужные столбцы (по индексам: B=1, D=3, G=6, I=8)
-    if df.shape[1] < 9:
-        raise ValueError("В первом файле недостаточно столбцов (нужны B, D, G, I)")
+    # Выбираем нужные столбцы (по индексам: A=0, D=3, G=6, H=7)
+    if df.shape[1] < 8:
+        raise ValueError("В первом файле недостаточно столбцов (нужны A, D, G, H)")
 
-    df = df.iloc[:, [1, 3, 6, 8]].copy()   # G=6 (название_номера)
+    df = df.iloc[:, [0, 3, 6, 7]].copy()   # A=0 (пабрикушка), D=3 (номер), G=6 (название_номера), H=7 (вес)
     df.columns = ['пабрикушка', 'номер', 'название_номера', 'вес']
 
     # Заменяем NaN на пустые строки/0
@@ -762,25 +818,34 @@ def get_unique_pabricushki(first_file, second_file, sprav_file) -> Tuple[List[st
     df1 = read_first_file(first_file)
     pab1_list = sorted(df1['пабрикушка'].unique().tolist())
 
-    # Чтение второго файла (уже модифицированного preprocess_second_file)
+    # Чтение второго файла - берём ВСЕ пабрикушки напрямую, без проверки справочника
+    # Файл 2 уже модифицирован preprocess_second_file — имеет заголовок в первой строке
     try:
-        df2 = pd.read_excel(second_file, sheet_name="Лист1", header=0, dtype=str)
+        df2_raw = pd.read_excel(second_file, sheet_name="Лист1", header=0, dtype=str)
     except Exception as e:
         raise ValueError(f"Ошибка чтения второго файла: {e}")
 
-    # Проверяем наличие столбца 'пабрикушка'
-    if 'пабрикушка' not in df2.columns:
-        raise ValueError("В файле 2 отсутствует столбец 'пабрикушка'")
+    print(f"[get_unique_pabricushki] Столбцы файла 2: {list(df2_raw.columns)}")
+    print(f"[get_unique_pabricushki] Строк в файле 2: {len(df2_raw)}")
 
-    # Получаем уникальные пабрикушки
-    pab2_list = df2['пабрикушка'].dropna().astype(str).str.strip().unique()
-    pab2_list = [p for p in pab2_list if p]  # Удаляем пустые строки
-    pab2_list = sorted(pab2_list)
-
-    # Логирование для отладки
-    print(f"[get_unique_pabricushki] Уникальных пабрикушек из файла 2: {len(pab2_list)}")
-    if pab2_list:
-        print(f"[get_unique_pabricushki] Примеры пабрикушек: {pab2_list[:3]}")
+    # Проверяем наличие столбца 'пабрикушка' (модифицированный файл)
+    if 'пабрикушка' in df2_raw.columns:
+        df2_raw['пабрикушка'] = df2_raw['пабрикушка'].fillna('').astype(str).str.strip()
+        df2_raw = df2_raw[df2_raw['пабрикушка'] != '']
+        pab2_list = sorted(df2_raw['пабрикушка'].unique().tolist())
+        print(f"[get_unique_pabricushki] Найдено пабрикушек из файла 2: {len(pab2_list)}")
+        if pab2_list:
+            print(f"[get_unique_pabricushki] Примеры: {pab2_list[:3]}")
+    else:
+        # Fallback: читаем столбец A (индекс 0)
+        if df2_raw.shape[1] < 1:
+            raise ValueError("Во втором файле недостаточно столбцов")
+        df2_raw = df2_raw.iloc[:, [0]].copy()
+        df2_raw.columns = ['пабрикушка']
+        df2_raw['пабрикушка'] = df2_raw['пабрикушка'].fillna('').astype(str).str.strip()
+        df2_raw = df2_raw[df2_raw['пабрикушка'] != '']
+        pab2_list = sorted(df2_raw['пабрикушка'].unique().tolist())
+        print(f"[get_unique_pabricushki] Fallback: найдено пабрикушек: {len(pab2_list)}")
 
     return pab1_list, pab2_list
 
@@ -876,17 +941,22 @@ def preprocess_second_file(file_path, sprav_file):
         if final_num and field_name and final_num not in field_name_lookup:
             field_name_lookup[final_num] = field_name
 
-    # Читаем файл 2 с заголовками (уже модифицированный)
+    # Читаем ВЕСЬ файл 2 (без skiprows, чтобы сохранить структуру)
     try:
-        df_data = pd.read_excel(file_path, sheet_name="Лист1", header=0, dtype=str)
+        df_full = pd.read_excel(file_path, sheet_name="Лист1", header=None, dtype=str)
     except Exception as e:
         raise ValueError(f"Ошибка чтения файла 2: {e}")
 
-    # Проверяем наличие обязательных столбцов
-    required_cols = ['пабрикушка', 'вес', 'название_номера', 'исходный_номер']
-    for col in required_cols:
-        if col not in df_data.columns:
-            raise ValueError(f"В файле 2 отсутствует обязательный столбец: {col}")
+    # Данные начинаются с 5-й строки (индекс 4), пропуская 4 строки заголовков
+    data_start_row = 4
+
+    # Столбцы: A=0(пабрикушка), B=1(вес), D=3(название_номера), F=5(исходный_номер)
+    if df_full.shape[1] < 6:
+        raise ValueError("Во втором файле недостаточно столбцов")
+
+    # Извлекаем только строки с данными
+    df_data = df_full.iloc[data_start_row:].copy()
+    df_data.columns = ['пабрикушка', 'вес', 'col_2', 'название_номера', 'col_4', 'исходный_номер']
 
     # Добавляем столбец для финальных номеров
     df_data['финальный_номер'] = ''
@@ -912,27 +982,11 @@ def preprocess_second_file(file_path, sprav_file):
         if not name_val and final_num:
             df_data.at[idx, 'название_номера'] = field_name_lookup.get(final_num, '')
 
-    # Сохраняем данные с сохранением всех оригинальных столбцов
-    if 'финальный_номер' not in df_data.columns:
-        df_data['финальный_номер'] = ''
+    # Сохраняем только строки данных с заголовками
+    df_save = df_data[['пабрикушка', 'вес', 'название_номера', 'исходный_номер', 'финальный_номер']].copy()
     
-    # Сохраняем обратно с теми же заголовками
     with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
-        df_data.to_excel(
-            writer, 
-            sheet_name="Лист1", 
-            index=False,
-            header=True
-        )
-        
-    # Проверяем сохранённый файл
-    try:
-        df_check = pd.read_excel(file_path, sheet_name="Лист1", header=0)
-        print(f"[preprocess] Проверка сохранённого файла:")
-        print(f"Столбцы: {list(df_check.columns)}")
-        print(f"Первые пабрикушки: {df_check['пабрикушка'].head(3).tolist()}")
-    except Exception as e:
-        print(f"[preprocess] Ошибка при проверке сохранённого файла: {e}")
+        df_save.to_excel(writer, sheet_name="Лист1", index=False)
 
     # Отладка
     pab_count = (df_save['пабрикушка'] != '').sum()

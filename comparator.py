@@ -203,7 +203,7 @@ def read_first_file(file_path):
     if df.shape[1] < 8:
         raise ValueError("В первом файле недостаточно столбцов (нужны A, D, G, H)")
 
-    df = df.iloc[:, [0, 3, 2, 7]].copy()   # A=0 (пабрикушка), D=3 (номер), G=6 (название_номера), H=7 (вес)
+    df = df.iloc[:, [0, 3, 5, 7]].copy()   # A=0 (пабрикушка), D=3 (номер), G=6 (название_номера), H=7 (вес)
     df.columns = ['пабрикушка', 'номер', 'название_номера', 'вес']
 
     # Заменяем NaN на пустые строки/0
@@ -758,19 +758,14 @@ def process_files(first_file, second_file, sprav_file, output_file,
     if excluded_list:
         df2_ok = exclude_pabricushki(df2_ok, excluded_list)
 
-    # Применяем соотношения названий полей ко второму файлу
+    # Для файла 2 маппинг field1→field2 НЕ применяем: там уже стоят итоговые названия (field2).
+    # Только исключаем поля, у которых mapping = None (исключённые пользователем).
+    # Исключённые поля определяются по значениям field2 (правая часть маппинга = None)
     if field_mappings:
-        df2_ok['название_номера_orig'] = df2_ok['название_номера']
-        # Получаем список исключённых полей (где mapping = None)
-        excluded_fields = {f for f, m in field_mappings.items() if m is None}
-        
-        # Исключаем строки с исключёнными названиями полей ДО применения маппинга
-        df2_ok = df2_ok[~df2_ok['название_номера'].isin(excluded_fields)]
-        
-        # Применяем маппинг к оставшимся полям
-        df2_ok['название_номера'] = df2_ok['название_номера'].apply(
-            lambda x: field_mappings[x] if (x in field_mappings and field_mappings[x] is not None) else x
-        )
+        excluded_field1_keys = {f for f, m in field_mappings.items() if m is None}
+        # Получаем field2-значения исключённых field1, чтобы найти их в файле 2
+        # (если field1 исключён — его field2 пары нет, но на всякий случай проверяем оба)
+        df2_ok = df2_ok[~df2_ok['название_номера'].isin(excluded_field1_keys)]
 
     # Агрегируем (уже есть ключ)
     pab2, w2 = aggregate_by_key(df2_ok, 'second')

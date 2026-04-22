@@ -203,7 +203,7 @@ def read_first_file(file_path):
     if df.shape[1] < 8:
         raise ValueError("В первом файле недостаточно столбцов (нужны A, D, G, H)")
 
-    df = df.iloc[:, [0, 3, 5, 7]].copy()   # A=0 (пабрикушка), D=3 (номер), F=5 (название_номера), H=7 (вес)
+    df = df.iloc[:, [0, 3, 5, 7]].copy()   # A=0 (пабрикушка), D=3 (номер), 5 (название_номера), H=7 (вес)
     df.columns = ['пабрикушка', 'номер', 'название_номера', 'вес']
 
     # Заменяем NaN на пустые строки/0
@@ -738,7 +738,7 @@ def process_files(first_file, second_file, sprav_file, output_file,
 
         # Применяем маппинг к оставшимся полям
         df1_raw['название_номера'] = df1_raw['название_номера'].apply(
-            lambda x: field_mappings.get(x, x)
+            lambda x: field_mappings[x] if (x in field_mappings and field_mappings[x] is not None) else x
         )
 
     # Дополнительно исключаем по списку (для старых записей)
@@ -769,7 +769,7 @@ def process_files(first_file, second_file, sprav_file, output_file,
         
         # Применяем маппинг к оставшимся полям
         df2_ok['название_номера'] = df2_ok['название_номера'].apply(
-            lambda x: field_mappings.get(x, x)
+            lambda x: field_mappings[x] if (x in field_mappings and field_mappings[x] is not None) else x
         )
 
     # Агрегируем (уже есть ключ)
@@ -1010,8 +1010,7 @@ def get_unique_fields(first_file, second_file, sprav_file) -> Tuple[List[str], L
     """
     # Чтение первого файла - столбец G (индекс 6)
     df1 = read_first_file(first_file)
-    field1_raw = df1['название_номера'].dropna().astype(str).str.strip().unique().tolist()
-    field1_list = sorted([f for f in field1_raw if f and f.lower() != 'nan'])
+    field1_list = sorted(df1['название_номера'].unique().tolist())
 
     # Чтение второго файла - столбец D (название_номера, индекс 3)
     # Файл 2 уже модифицирован - названия заполнены из справочника
@@ -1023,7 +1022,7 @@ def get_unique_fields(first_file, second_file, sprav_file) -> Tuple[List[str], L
     # Проверяем наличие столбца 'название_номера' (модифицированный файл)
     if 'название_номера' in df2_raw.columns:
         field2_list = sorted(df2_raw['название_номера'].dropna().astype(str).str.strip().unique().tolist())
-        field2_list = [f for f in field2_list if f and f.lower() != 'nan']  # Убираем пустые и nan
+        field2_list = [f for f in field2_list if f]  # Убираем пустые
     else:
         # Fallback: читаем столбец D (индекс 3)
         if df2_raw.shape[1] < 4:
@@ -1117,9 +1116,6 @@ def auto_map_fields(
 
     # Сначала применяем существующие соотношения из БД
     for field1 in field1_list:
-        if not field1 or field1.lower() == 'nan':
-            result[field1] = {'value': None, 'source': None}
-            continue
         if field1 in existing_mappings:
             db_value = existing_mappings[field1]
             if db_value is None:
@@ -1135,11 +1131,6 @@ def auto_map_fields(
     # Для новых полей пытаемся найти авто-сопоставление
     for field1 in field1_list:
         if field1 in result:
-            continue
-
-        # Пропускаем пустые и nan-значения
-        if not field1 or field1.lower() == 'nan':
-            result[field1] = {'value': None, 'source': None}
             continue
 
         # Ищем похожее название во 2-м файле

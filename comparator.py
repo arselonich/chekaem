@@ -758,14 +758,7 @@ def process_files(first_file, second_file, sprav_file, output_file,
     if excluded_list:
         df2_ok = exclude_pabricushki(df2_ok, excluded_list)
 
-    # Для файла 2 маппинг field1→field2 НЕ применяем: там уже стоят итоговые названия (field2).
-    # Только исключаем поля, у которых mapping = None (исключённые пользователем).
-    # Исключённые поля определяются по значениям field2 (правая часть маппинга = None)
-    if field_mappings:
-        excluded_field1_keys = {f for f, m in field_mappings.items() if m is None}
-        # Получаем field2-значения исключённых field1, чтобы найти их в файле 2
-        # (если field1 исключён — его field2 пары нет, но на всякий случай проверяем оба)
-        df2_ok = df2_ok[~df2_ok['название_номера'].isin(excluded_field1_keys)]
+
 
     # Агрегируем (уже есть ключ)
     pab2, w2 = aggregate_by_key(df2_ok, 'second')
@@ -786,19 +779,9 @@ def process_files(first_file, second_file, sprav_file, output_file,
     # 7. Сохраняем результат
     save_excel(result_df, df2_errors, output_file)
 
-    # 8. Модифицируем исходные файлы в папке сессии — заполняем пустые названия и финальные номера
-    # Сохраняем модифицированный файл 1 (с финальными номерами и названиями)
-    df1_save = df1_raw[['пабрикушка', 'номер', 'название_номера', 'вес']].copy()
-    with pd.ExcelWriter(first_file, engine='openpyxl') as writer:
-        df1_save.to_excel(writer, sheet_name="TDSheet", index=False)
-
-    # Сохраняем модифицированный файл 2 (с финальными номерами и заполненными названиями)
-    df2_save = df2_ok[['пабрикушка', 'вес', 'название_номера', 'финальный_номер', 'переработанный_номер']].copy()
-    with pd.ExcelWriter(second_file, engine='openpyxl') as writer:
-        df2_save.to_excel(writer, sheet_name="Лист1", index=False)
+    # 8. Файлы сессии не модифицируем повторно — всё необходимое уже сделано в preprocess_second_file()
 
     print(f"Обработка завершена. Результат сохранён в {output_file}")
-    print(f"Файлы сессии модифицированы: заполнены пустые названия, номера заменены на финальные")
     if not df2_errors.empty:
         print(f"Количество ошибочных строк во втором файле: {len(df2_errors)}")
 

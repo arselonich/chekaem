@@ -1310,6 +1310,7 @@
         document.getElementById('goToFieldsBtn').addEventListener('click', () => {
             document.getElementById('pabMappingStep').style.display = 'none';
             document.getElementById('fieldMappingStep').style.display = 'block';
+            document.querySelector('#step2 h2').textContent = 'Шаг 4: Сопоставление названий полей';
             // Загружаем авто-сопоставления для полей
             if (currentPlace) {
                 loadAutoFieldMappings(currentPlace);
@@ -1319,6 +1320,7 @@
         document.getElementById('backToPabsBtn').addEventListener('click', () => {
             document.getElementById('fieldMappingStep').style.display = 'none';
             document.getElementById('pabMappingStep').style.display = 'block';
+        document.querySelector('#step2 h2').textContent = 'Шаг 3: Сопоставление пабрикушек';      
         });
 
         // ==================== Загрузка авто-сопоставлений для полей ====================
